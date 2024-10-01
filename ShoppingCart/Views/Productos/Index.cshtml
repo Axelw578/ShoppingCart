@@ -1,0 +1,170 @@
+﻿@model IEnumerable<ShoppingCart.Models.Producto>
+
+<h2>Productos</h2>
+
+<div class="row">
+    @foreach (var producto in Model)
+    {
+        <div class="col-md-4">
+            <div class="card mb-4 shadow-sm">
+                <!-- Cambia la línea de la imagen -->
+                <img class="card-img-top" src="@producto.Imagen" alt="@producto.Nombre" class="img-fluid" style="height: 200px; object-fit: contain;">
+                <div class="card-body text-center">
+                    <h5 class="card-title">@producto.Nombre</h5>
+                    <p class="card-text text-muted">@producto.Descripcion</p>
+                    <p class="card-text text-success"><strong>@producto.Precio.ToString("C")</strong></p>
+
+                    <!-- Formulario modificado para usar AJAX -->
+                    <form id="agregarCarritoForm-@producto.ProductoId">
+                        <input type="hidden" name="productoId" value="@producto.ProductoId" />
+                        <button type="button" class="btn btn-primary btn-block" onclick="agregarAlCarrito(@producto.ProductoId)">Agregar al Carrito</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Modal de confirmación centrado en la parte superior -->
+<div id="mensajeCarrito" class="toast-container position-fixed top-0 start-50 translate-middle-x p-3" style="z-index: 1050;">
+    <div id="toastMensaje" class="toast bg-success text-white align-items-center" role="alert" aria-live="assertive" aria-atomic="true" style="opacity: 0; transition: opacity 0.5s ease-in-out;">
+        <div class="d-flex">
+            <div class="toast-body">
+                Producto agregado al carrito con éxito.
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function agregarAlCarrito(productoId) {
+        $.ajax({
+            url: '@Url.Action("AgregarAlCarrito", "Carrito")',
+            type: 'POST',
+            data: {
+                productoId: productoId
+            },
+            success: function () {
+                // Mostrar mensaje en el centro superior con animación
+                var $toast = $('#toastMensaje');
+                $toast.css('opacity', '1');  // Mostrar con animación
+                $toast.addClass('show');  // Usar la clase show de Bootstrap
+
+                // Desvanecer el mensaje después de 2 segundos
+                setTimeout(function () {
+                    $toast.css('opacity', '0');  // Efecto de desvanecimiento
+                }, 2000);
+
+                actualizarContadorCarrito();
+            },
+            error: function () {
+                alert("Error al agregar producto al carrito.");
+            }
+        });
+    }
+
+    function actualizarContadorCarrito() {
+        $.ajax({
+            url: '@Url.Action("ObtenerContadorCarrito", "Carrito")',
+            type: 'GET',
+            success: function (data) {
+                $('#carritoContador').text(data);
+            }
+        });
+    }
+</script>
+
+<style>
+    .card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+        .card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+
+    .card-title {
+        font-size: 1.25rem;
+        font-weight: bold;
+    }
+
+    .card-text {
+        font-size: 0.9rem;
+    }
+
+    .btn-block {
+        width: 100%;
+    }
+
+    .toast-container {
+        top: 20px; /* Ajusta la ubicación del mensaje más arriba */
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    #toastMensaje {
+        opacity: 0; /* Comienza oculto */
+        transition: opacity 0.5s ease-in-out; /* Suaviza la transición */
+    }
+
+    /* Nueva clase para redimensionar la imagen */
+    .card-img-top {
+        height: 200px; /* Altura fija para todas las imágenes */
+        object-fit: contain; /* Mantiene la imagen completa sin recortarla */
+        width: 100%; /* Asegura que la imagen ocupe todo el ancho */
+    }
+</style>
+
+<script>
+    // Función para actualizar el contador del carrito en tiempo real
+    function actualizarContadorCarrito(cantidad) {
+        var contador = $("#cart-counter");
+        if (cantidad > 0) {
+            contador.text(cantidad);
+            contador.show();  // Muestra el indicador si hay productos
+        } else {
+            contador.hide();  // Oculta el indicador si no hay productos
+        }
+    }
+
+    // Cuando se agrega un producto al carrito
+    $(".agregar-carrito-btn").click(function (e) {
+        e.preventDefault();
+        var productoId = $(this).data("producto-id");
+
+        $.post("/Carrito/AgregarAlCarrito", { productoId: productoId }, function (response) {
+            if (response.success) {
+                // Actualiza el contador del carrito en tiempo real
+                actualizarContadorCarrito(response.cantidad);
+            }
+        });
+    });
+
+    // Cuando se elimina un producto del carrito
+    $(".eliminar-carrito-btn").click(function (e) {
+        e.preventDefault();
+        var productoId = $(this).data("producto-id");
+
+        $.post("/Carrito/EliminarDelCarrito", { productoId: productoId }, function (response) {
+            if (response.success) {
+                // Actualiza el contador del carrito en tiempo real
+                actualizarContadorCarrito(response.cantidad);
+            }
+        });
+    });
+</script>
+
+<script>
+    $('#agregar-al-carrito-btn').on('click', function () {
+        var productoId = $(this).data('productoid');
+
+        $.post('@Url.Action("AgregarAlCarrito", "Carrito")', { productoId: productoId }, function (response) {
+            if (response.success) {
+                actualizarCarritoCount(); // Actualiza el contador
+            }
+        });
+    });
+</script>
+

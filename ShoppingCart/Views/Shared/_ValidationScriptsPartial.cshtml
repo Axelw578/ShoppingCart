@@ -1,0 +1,21 @@
+﻿<!-- Scripts de Validación con jQuery -->
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+<script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+
+
+<!-- Configuración personalizada para jQuery Validation (opcional) -->
+<script>
+    $(document).ready(function () {
+        // Puedes agregar configuraciones personalizadas aquí
+        $("form").validate({
+            errorClass: "text-danger",  // Clase CSS para mensajes de error
+            highlight: function (element) {
+                $(element).closest('.form-group').addClass('has-error');
+            },
+            unhighlight: function (element) {
+                $(element).closest('.form-group').removeClass('has-error');
+            }
+        });
+    });
+</script>

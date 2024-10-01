@@ -1,0 +1,182 @@
+﻿@model ShoppingCart.Models.Carrito
+@{
+    ViewBag.Title = "Tu Carrito de Compras";
+}
+
+<h2>Carrito de Compras</h2>
+
+<form asp-action="ComprarSeleccionados" method="post">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Seleccionar</th>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Precio Unitario</th>
+                <th>Subtotal</th>
+                <th>Eliminar</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Items != null && Model.Items.Count > 0)
+            {
+                foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="form-check-input producto-seleccionado" name="productosSeleccionados" value="@item.ProductoId" />
+                        </td>
+                        <td>@item.Producto.Nombre</td>
+                        <td>
+                            <input type="number" name="cantidad" value="@item.Cantidad" min="1" class="form-control cantidad-input" data-productoid="@item.ProductoId" style="width: 60px;" />
+                        </td>
+                        <td>@item.PrecioUnitario.ToString("C")</td>
+                        <td class="subtotal">@((item.PrecioUnitario * item.Cantidad).ToString("C"))</td>
+                        <td>
+                            <button type="button" class="btn btn-danger btn-sm eliminar-producto" data-productoid="@item.ProductoId">Eliminar</button>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <div class="row">
+        <div class="col-md-6">
+            <button type="submit" class="btn btn-primary">Realizar Pedido</button>
+        </div>
+        <div class="col-md-6 text-right">
+            <h4>Total: <span id="total">@ViewBag.TotalSeleccionado.ToString("C")</span></h4>
+        </div>
+    </div>
+</form>
+
+<a href="@Url.Action("Index", "Productos")" class="btn btn-secondary" style="position: absolute; bottom: 10px; left: 10px;">Regresar a Productos</a>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function () {
+        // Actualiza el subtotal y el total automáticamente
+        function actualizarTotal() {
+            let total = 0;
+            $('.producto-seleccionado:checked').each(function () {
+                let fila = $(this).closest('tr');
+                let subtotal = parseFloat(fila.find('.subtotal').text().replace('$', '').replace(',', ''));
+                total += subtotal;
+            });
+            $('#total').text('$' + total.toFixed(2));
+        }
+
+        // Función para actualizar el contador del carrito
+        function actualizarCarritoCount() {
+            $.getJSON('@Url.Action("ObtenerCarritoCount", "Carrito")', function (data) {
+                var count = data.carritoCount;
+                var carritoCountElem = $('#carrito-count');
+
+                if (count > 0) {
+                    carritoCountElem.text(count);
+                    carritoCountElem.show();
+                } else {
+                    carritoCountElem.hide();
+                }
+            });
+        }
+
+        // Evento cuando se selecciona o deselecciona un producto
+        $('.producto-seleccionado').on('change', function () {
+            actualizarTotal();
+        });
+
+        // Evento cuando se cambia la cantidad
+        $('.cantidad-input').on('change', function () {
+            let productId = $(this).data('productoid');
+            let cantidad = $(this).val();
+
+            // Llamada AJAX para actualizar la cantidad sin refrescar la página
+            $.post('@Url.Action("ActualizarCantidad", "Carrito")', { productoId: productId, cantidad: cantidad }, function () {
+                // Actualizar el subtotal de esa fila
+                let fila = $('input[data-productoid="' + productId + '"]').closest('tr');
+                let precioUnitario = parseFloat(fila.find('td:eq(3)').text().replace('$', '').replace(',', ''));
+                let nuevoSubtotal = precioUnitario * cantidad;
+                fila.find('.subtotal').text('$' + nuevoSubtotal.toFixed(2));
+
+                // Actualizar el total
+                actualizarTotal();
+
+                // Actualizar el contador del carrito en tiempo real
+                actualizarCarritoCount();
+            });
+        });
+
+        // Evento para eliminar un producto del carrito
+        $('.eliminar-producto').on('click', function () {
+            let productId = $(this).data('productoid');
+
+            // Llamada AJAX para eliminar el producto
+            $.post('@Url.Action("EliminarDelCarrito", "Carrito")', { productoId: productId }, function () {
+                // Eliminar la fila del producto en el DOM
+                $('button[data-productoid="' + productId + '"]').closest('tr').remove();
+
+                // Actualizar el total
+                actualizarTotal();
+
+                // Actualizar el contador del carrito en tiempo real
+                actualizarCarritoCount();
+            });
+        });
+
+        // Actualizar el total y el contador al cargar la página
+        actualizarTotal();
+        actualizarCarritoCount();
+    });
+</script>
+
+<script>
+    // Función para agregar producto al carrito
+    function agregarAlCarrito(productoId) {
+        $.ajax({
+            type: "POST",
+            url: '@Url.Action("AgregarAlCarrito", "Carrito")',
+            data: { productoId: productoId },
+            success: function (response) {
+                // Actualiza el contador del carrito con el valor devuelto
+                $('#carrito-count').text(response.carritoCount);
+
+                // Mostrar un mensaje de éxito
+                mostrarMensaje(response.mensaje);
+
+                // Si el conteo del carrito es mayor a 0, mostrar el badge
+                if (response.carritoCount > 0) {
+                    $('#carrito-count').show();
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error("Error al agregar al carrito: " + error);
+            }
+        });
+    }
+
+    // Función para mostrar el mensaje de confirmación 
+    function mostrarMensaje(mensaje) {
+        var toastElement = $('<div class="alert alert-success" role="alert">' + mensaje + '</div>');
+        $('body').append(toastElement);
+
+        // Desaparece después de 3 segundos
+        setTimeout(function () {
+            toastElement.fadeOut('slow', function () {
+                $(this).remove();
+            });
+        }, 3000);
+    }
+
+    // Llama a esta función cuando se cargue la página para verificar el conteo inicial
+    $(document).ready(function () {
+        actualizarCarritoCount();
+
+        // Evento al agregar producto
+        $('.btn-agregar-carrito').on('click', function () {
+            var productoId = $(this).data('producto-id');
+            agregarAlCarrito(productoId);
+        });
+    });
+</script>
